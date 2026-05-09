@@ -1,0 +1,8 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Allow native post-install scripts for trusted build tools.
+# esbuild downloads a platform-specific binary at install time.
+allowBuilds:
+  esbuild: true

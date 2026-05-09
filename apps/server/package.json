@@ -1,0 +1,33 @@
+{
+  "name": "@rcc/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node --import tsx src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .tsbuildinfo"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "@rcc/shared": "workspace:*",
+    "archiver": "^7.0.1",
+    "execa": "^9.5.2",
+    "fastify": "^5.1.0",
+    "fs-extra": "^11.2.0",
+    "marked": "^15.0.4",
+    "pino": "^9.5.0",
+    "pino-pretty": "^11.3.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/archiver": "^6.0.3",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

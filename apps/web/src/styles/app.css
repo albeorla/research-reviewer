@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark light;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  body {
+    @apply bg-slate-950 text-slate-100 antialiased;
+    font-family: theme("fontFamily.sans");
+  }
+
+  ::selection {
+    @apply bg-indigo-500/40 text-white;
+  }
+
+  /* Subtle scrollbar styling for log panels and code views. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-700/60 rounded-md;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-600/60;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-slate-800 bg-slate-900/60 shadow-card;
+  }
+
+  .card-header {
+    @apply flex items-center justify-between border-b border-slate-800 px-4 py-3;
+  }
+
+  .card-body {
+    @apply p-4;
+  }
+
+  .label {
+    @apply block text-xs font-medium uppercase tracking-wide text-slate-400;
+  }
+
+  .input {
+    @apply block w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500;
+  }
+
+  .textarea {
+    @apply input min-h-[6rem] font-mono text-[13px] leading-relaxed;
+  }
+
+  .select {
+    @apply input appearance-none pr-8;
+  }
+
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-indigo-600 text-white hover:bg-indigo-500;
+  }
+
+  .btn-secondary {
+    @apply btn border border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700;
+  }
+
+  .btn-ghost {
+    @apply btn text-slate-300 hover:bg-slate-800/60;
+  }
+
+  .btn-danger {
+    @apply btn border border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium;
+  }
+  .pill-neutral {
+    @apply pill bg-slate-800 text-slate-300;
+  }
+  .pill-success {
+    @apply pill bg-emerald-500/15 text-emerald-300;
+  }
+  .pill-warning {
+    @apply pill bg-amber-500/15 text-amber-300;
+  }
+  .pill-danger {
+    @apply pill bg-red-500/15 text-red-300;
+  }
+  .pill-info {
+    @apply pill bg-indigo-500/15 text-indigo-300;
+  }
+
+  .mono {
+    font-family: theme("fontFamily.mono");
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "research-consolidation-console",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first research consolidation console — turns a rough idea into an enriched prompt, runs adversarial review across five frontier model outputs, and exports a consolidated decision.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.0.9",
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,magenta \"pnpm --filter @rcc/server dev\" \"pnpm --filter @rcc/web dev\"",
+    "dev:server": "pnpm --filter @rcc/server dev",
+    "dev:web": "pnpm --filter @rcc/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.6.3"
+  }
+}
