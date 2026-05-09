@@ -9,6 +9,7 @@ import { registerFileRoutes } from "./routes/files.routes.js";
 import { registerSourceRoutes } from "./routes/sources.routes.js";
 import { registerPipelineRoutes } from "./routes/pipeline.routes.js";
 import { registerExportRoutes } from "./routes/export.routes.js";
+import { registerStaticAssets } from "./static.js";
 
 export async function buildApp() {
   const app = Fastify({
@@ -65,6 +66,10 @@ export async function buildApp() {
   await registerSourceRoutes(app);
   await registerPipelineRoutes(app);
   await registerExportRoutes(app);
+
+  // Register static asset serving + SPA fallback last so all /api routes
+  // are already declared and the not-found handler can route correctly.
+  await registerStaticAssets(app);
 
   return app;
 }
