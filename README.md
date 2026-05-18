@@ -54,6 +54,20 @@ A single LLM answering a research question is a sample of one. Five of them, aud
 
 Requires Node 22+, pnpm 11+, and the `claude` CLI on your `$PATH`.
 
+For the always-on local app on this Mac:
+
+```sh
+open https://rcc.test/
+```
+
+- Web UI: https://rcc.test/
+- API health check: https://rcc.test/api/health
+- The background app service runs at login as `com.user.admin.rcc`.
+- Restart the background app service with `launchctl kickstart -k gui/$(id -u)/com.user.admin.rcc`.
+- Local-service details live in `docs/local-services.md`.
+
+For foreground development:
+
 ```sh
 pnpm install
 pnpm dev

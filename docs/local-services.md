@@ -79,6 +79,21 @@ root proxy (`/Library/LaunchDaemons/com.user.admin.admin-dashboard-proxy.plist`)
 was retired when Caddy took over port 80; the file is on disk for rollback
 but is `bootout`-ed.
 
+RCC also predates the current `com.aorlando.<NAME>` convention on this Mac.
+The browser URL is still the normal one, `https://rcc.test/`, but the live
+daemon is:
+
+```
+Label:              com.user.admin.rcc
+LaunchAgent link:   ~/Library/LaunchAgents/com.user.admin.rcc.plist
+LaunchAgent source: /Users/aorlando/dev/admin/rcc/com.user.admin.rcc.plist
+Working directory:  /Users/aorlando/dev/ideas/research-reviewer
+App port:           127.0.0.1:3001
+Output root:        /Users/aorlando/research-runs
+Logs:               /tmp/admin/rcc.log; errors go to /tmp/admin/rcc.err
+                    once the app writes stderr
+```
+
 ## Add a new service in 5 lines
 
 Pick `<NAME>` (lowercase, hyphen-free) and `<PORT>` (high, free). The app
@@ -113,18 +128,19 @@ sed -i '' "s|certs/rcc.test+[0-9]*.pem|certs/${CERT}|g; s|certs/rcc.test+[0-9]*-
 curl https://${NAME}.test/   # 502 until the app is running, then 200.
 ```
 
-To run the new service as an always-on daemon, copy
-`~/Library/LaunchAgents/com.aorlando.rcc.plist` and edit the four placeholders
-(`<NAME>`, `<WORKING_DIR>`, `<START_COMMAND_ARGS>`, `<PORT>`):
+To run the new service as an always-on daemon, create a per-user LaunchAgent
+with the same shape as the RCC service. Use the current RCC plist as a
+starting point, then change the label, working directory, command, port env var,
+and log paths before loading it:
 
 ```sh
 NAME=myapp
-sed "s|com.aorlando.rcc|com.aorlando.${NAME}|g; s|/Users/aorlando/Library/Logs/local-services/rcc|/Users/aorlando/Library/Logs/local-services/${NAME}|g" \
-  ~/Library/LaunchAgents/com.aorlando.rcc.plist \
+sed "s|com.user.admin.rcc|com.aorlando.${NAME}|g; s|/tmp/admin/rcc|/Users/aorlando/Library/Logs/local-services/${NAME}|g" \
+  ~/Library/LaunchAgents/com.user.admin.rcc.plist \
   > ~/Library/LaunchAgents/com.aorlando.${NAME}.plist
 
-# Edit WorkingDirectory, ProgramArguments, and RCC_PORT/your-port env var
-# in the new plist, then:
+# Edit WorkingDirectory, ProgramArguments, and RCC_PORT/your-port env var in
+# the new plist, then:
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.aorlando.${NAME}.plist
 ```
 
@@ -136,17 +152,18 @@ caddy reload --config /opt/homebrew/etc/Caddyfile
 
 # Restart RCC after a code or build change
 pnpm --filter @rcc/web build
-launchctl kickstart -k gui/$(id -u)/com.aorlando.rcc
+launchctl kickstart -k gui/$(id -u)/com.user.admin.rcc
 
 # Tail RCC logs
-tail -f ~/Library/Logs/local-services/rcc.out.log
+tail -f /tmp/admin/rcc.log
+[ -f /tmp/admin/rcc.err ] && tail -f /tmp/admin/rcc.err
 
 # Tail Caddy logs
 tail -f /opt/homebrew/var/log/caddy.log
 
 # Stop / start the RCC daemon
-launchctl bootout gui/$(id -u)/com.aorlando.rcc
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.aorlando.rcc.plist
+launchctl bootout gui/$(id -u)/com.user.admin.rcc
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.user.admin.rcc.plist
 ```
 
 ## Troubleshooting
@@ -192,10 +209,11 @@ sudo lsof -nP -iTCP:53 -sTCP:LISTEN   # confirm dnsmasq is on port 53
 Caddy is up but the upstream app is not. Check the LaunchAgent.
 
 ```sh
-launchctl list | grep com.aorlando.rcc          # PID column should be a number
+launchctl list | grep com.user.admin.rcc        # PID column should be a number
 lsof -nP -iTCP:3001 -sTCP:LISTEN                # something should listen
-tail -50 ~/Library/Logs/local-services/rcc.err.log
-launchctl kickstart -k gui/$(id -u)/com.aorlando.rcc   # force restart
+tail -50 /tmp/admin/rcc.log
+[ -f /tmp/admin/rcc.err ] && tail -50 /tmp/admin/rcc.err
+launchctl kickstart -k gui/$(id -u)/com.user.admin.rcc # force restart
 ```
 
 **`https://rcc.test/` returns connection refused**
@@ -225,11 +243,11 @@ sudo brew services restart caddy
 The RCC LaunchAgent owns 3001 in production. Stop it before running `pnpm dev`:
 
 ```sh
-launchctl bootout gui/$(id -u)/com.aorlando.rcc
+launchctl bootout gui/$(id -u)/com.user.admin.rcc
 pnpm dev    # now 3001 is free; Vite still uses 5173 with /api proxy
 
 # When done, bring the daemon back:
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.aorlando.rcc.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.user.admin.rcc.plist
 ```
 
 ## Notes
