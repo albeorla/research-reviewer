@@ -3,13 +3,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   approxTokenCount,
-  SOURCE_NAMES,
   SOURCE_NAME_LABELS,
+  activeSourceNames,
   wordCount,
 } from "@rcc/shared";
 import { enrichApi } from "@/lib/apiEnrich";
 import { CopyButton } from "@/components/ui/CopyButton";
-import { ChevronRight, RefreshCw, Save, Sparkles } from "lucide-react";
+import { ChevronRight, RefreshCw, Save, SkipForward, Sparkles } from "lucide-react";
 import clsx from "clsx";
 
 export function EnrichScreen() {
@@ -40,6 +40,7 @@ export function EnrichScreen() {
       setDraft(data.enrichedPrompt);
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: ["enrich", runId] });
+      queryClient.invalidateQueries({ queryKey: ["sources", runId] });
       queryClient.setQueryData(["run", runId], data.run);
     },
     onError: (e: unknown) =>
@@ -52,12 +53,28 @@ export function EnrichScreen() {
       setActionError(null);
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: ["enrich", runId] });
+      queryClient.invalidateQueries({ queryKey: ["sources", runId] });
       queryClient.setQueryData(["run", runId], data.run);
     },
     onError: (e: unknown) =>
       setActionError(e instanceof Error ? e.message : String(e)),
   });
 
+  const skipMutation = useMutation({
+    mutationFn: () => enrichApi.setSkip(runId!, true),
+    onSuccess: (data) => {
+      setActionError(null);
+      queryClient.invalidateQueries({ queryKey: ["enrich", runId] });
+      queryClient.invalidateQueries({ queryKey: ["sources", runId] });
+      queryClient.setQueryData(["run", runId], data.run);
+      navigate(`/runs/${runId}/collect`);
+    },
+    onError: (e: unknown) =>
+      setActionError(e instanceof Error ? e.message : String(e)),
+  });
+
+  const run = enrichQuery.data?.run;
+  const activeNames = run ? activeSourceNames(run) : [];
   const stage = enrichQuery.data?.run.pipeline.stages.prompt_enrichment;
   const modelInstructions = enrichQuery.data?.modelInstructions ?? "";
   const hasContent = Boolean(draft.trim());
@@ -72,8 +89,8 @@ export function EnrichScreen() {
         <div>
           <h1 className="text-xl font-semibold">② Enrich Research Prompt</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Turn the rough idea into a rigorous prompt to run across five model
-            UIs.
+            Turn the rough idea into a rigorous prompt to run across your model
+            UIs — or skip it and use the raw idea as-is.
           </p>
         </div>
         <StatusPill
@@ -182,7 +199,7 @@ export function EnrichScreen() {
                 </span>
               </div>
               <div className="card-body grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                {SOURCE_NAMES.map((name) => (
+                {activeNames.map((name) => (
                   <CopyButton
                     key={name}
                     text={draft}
@@ -249,6 +266,16 @@ export function EnrichScreen() {
         {dirty && (
           <span className="text-xs text-amber-300">Unsaved edits</span>
         )}
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={skipMutation.isPending || !runId}
+          onClick={() => skipMutation.mutate()}
+          title="Skip enrichment and use the raw idea as the research prompt"
+        >
+          <SkipForward size={14} />
+          {skipMutation.isPending ? "Skipping..." : "Skip enrichment"}
+        </button>
         <button
           type="button"
           className="btn-primary"

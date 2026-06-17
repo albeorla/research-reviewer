@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import {
   RunParams,
   SaveSourceRequest,
+  SetSourceEnabledRequest,
   SourceParams,
 } from "@rcc/shared";
 import { sourceStore } from "../services/sourceStore.js";
@@ -19,5 +20,12 @@ export async function registerSourceRoutes(
     const { sourceName } = SourceParams.parse(req.params);
     const body = SaveSourceRequest.parse(req.body);
     return sourceStore.save(runId, sourceName, body);
+  });
+
+  app.post("/api/runs/:runId/sources/:sourceName/enabled", async (req) => {
+    const { runId } = RunParams.parse(req.params);
+    const { sourceName } = SourceParams.parse(req.params);
+    const { enabled } = SetSourceEnabledRequest.parse(req.body);
+    return sourceStore.setEnabled(runId, sourceName, enabled);
   });
 }

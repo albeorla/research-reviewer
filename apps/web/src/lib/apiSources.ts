@@ -49,4 +49,9 @@ export const sourcesApi = {
       `/runs/${encodeURIComponent(runId)}/sources/${encodeURIComponent(name)}`,
       { method: "POST", body: JSON.stringify(body) },
     ),
+  setEnabled: (runId: string, name: SourceName, enabled: boolean) =>
+    req<SourcesListResponse>(
+      `/runs/${encodeURIComponent(runId)}/sources/${encodeURIComponent(name)}/enabled`,
+      { method: "POST", body: JSON.stringify({ enabled }) },
+    ),
 };

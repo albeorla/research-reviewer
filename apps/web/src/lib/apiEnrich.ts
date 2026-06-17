@@ -23,6 +23,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 export interface EnrichGetResponse {
   enrichedPrompt: string | null;
   modelInstructions: string | null;
+  originalIdea: string | null;
   run: RunJson;
 }
 
@@ -40,5 +41,10 @@ export const enrichApi = {
     req<EnrichPostResponse>(`/runs/${encodeURIComponent(runId)}/enrich`, {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+  setSkip: (runId: string, skip: boolean) =>
+    req<{ run: RunJson }>(`/runs/${encodeURIComponent(runId)}/enrich/skip`, {
+      method: "POST",
+      body: JSON.stringify({ skip }),
     }),
 };

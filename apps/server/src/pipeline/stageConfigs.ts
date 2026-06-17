@@ -4,8 +4,8 @@ import {
   CliProvider,
   PipelineStage,
   RunJson,
-  SOURCE_NAMES,
   SOURCE_NAME_LABELS,
+  activeSourceNames,
 } from "@rcc/shared";
 import { runPaths } from "../utils/paths.js";
 
@@ -44,15 +44,23 @@ const decisionArtifact = (file: string) => (run: RunJson) =>
   path.join(runPaths.decisionDir(run.run.runDir), file);
 
 const allSources = (run: RunJson): StageInput[] =>
-  SOURCE_NAMES.map((n) => ({
+  activeSourceNames(run).map((n) => ({
     label: SOURCE_NAME_LABELS[n],
     path: runPaths.source(run.run.runDir, n),
   }));
 
-const enrichedPromptInput = (run: RunJson): StageInput => ({
-  label: "Enriched research prompt",
-  path: runPaths.enrichedPrompt(run.run.runDir),
-});
+// The research prompt fed to every stage. When enrichment is skipped, the raw
+// idea stands in for the enriched prompt so stages still have task context.
+const enrichedPromptInput = (run: RunJson): StageInput =>
+  run.inputs.skipEnrichment
+    ? {
+        label: "Research prompt (raw idea)",
+        path: runPaths.originalIdea(run.run.runDir),
+      }
+    : {
+        label: "Enriched research prompt",
+        path: runPaths.enrichedPrompt(run.run.runDir),
+      };
 
 export const STAGE_CONFIGS: Partial<Record<PipelineStage, StageConfig>> = {
   source_audit: {

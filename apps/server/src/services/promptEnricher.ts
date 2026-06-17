@@ -98,6 +98,14 @@ export const promptEnricher = {
 
     const updated = await runStore.update(opts.runId, (r) => ({
       ...r,
+      // Producing a real enriched prompt clears any prior "skip enrichment"
+      // choice, so the pipeline and Copy-prompt buttons use it instead of the
+      // raw idea.
+      inputs: {
+        ...r.inputs,
+        skipEnrichment:
+          stage.status === "complete" ? false : r.inputs.skipEnrichment,
+      },
       pipeline: {
         ...r.pipeline,
         stages: {

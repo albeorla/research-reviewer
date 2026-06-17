@@ -1,6 +1,6 @@
 # Model Run Instructions
 
-Run the enriched research prompt across all five model UIs in any order. Your goal is five independent, comparable answers — not one merged answer.
+Run the research prompt across each enabled model UI in any order. Your goal is several independent, comparable answers — not one merged answer.
 
 ## For each model
 
@@ -21,8 +21,8 @@ Run the enriched research prompt across all five model UIs in any order. Your go
 - Edit, summarise, or paraphrase any model's output.
 - Mix outputs from different models into a single file.
 - Reuse a previous conversation — start fresh each time so the model has no prior context.
-- Skip a model. Adversarial review depends on having five independent answers.
+- Skip an enabled model. Adversarial review depends on having multiple independent answers (at least two).
 
-## Why these five
+## Why multiple models
 
-ChatGPT, Claude, Gemini, DeepSeek, and Kimi cover the largest spread of training data, alignment regimes, and reasoning styles available today. The downstream critics rely on real disagreement between sources to surface unsupported claims and missed alternatives. If you skip one model, the critics see a narrower window onto the question.
+Models like ChatGPT, Claude, Gemini, DeepSeek, and Kimi cover a wide spread of training data, alignment regimes, and reasoning styles. The downstream critics rely on real disagreement between sources to surface unsupported claims and missed alternatives. The more independent sources you provide, the wider the window the critics see onto the question.

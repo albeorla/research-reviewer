@@ -4,8 +4,10 @@ import {
   DecisionType,
   RunMode,
   SourceInputMode,
+  SourceName,
   SourceValidationStatus,
   StageStatus,
+  SOURCE_NAMES,
 } from "./enums.js";
 
 export const SourceValidation = z.object({
@@ -21,6 +23,12 @@ export const SourceState = z.object({
   approxTokenCount: z.number().int().min(0),
   savedAt: z.string().datetime().nullable(),
   validation: SourceValidation,
+  // Whether this provider participates in the run. Disabled providers are not
+  // required, not counted as missing, and excluded from the review pipeline.
+  // Older run.json files have no field; consumers treat absence as enabled via
+  // `activeSourceNames` (`enabled !== false`), since run.json is read without
+  // applying this zod default.
+  enabled: z.boolean().default(true),
 });
 export type SourceState = z.infer<typeof SourceState>;
 
@@ -41,6 +49,10 @@ export const RunInputs = z.object({
   originalIdeaPath: z.string(),
   enrichedPromptPath: z.string(),
   modelInstructionsPath: z.string(),
+  // When true, the enrich stage is bypassed and the raw idea is used as the
+  // research prompt. Absent in older run.json files; consumers treat a missing
+  // value as false (`skipEnrichment ?? false`).
+  skipEnrichment: z.boolean().default(false),
   sources: SourcesMap,
 });
 export type RunInputs = z.infer<typeof RunInputs>;
@@ -93,6 +105,18 @@ export const RunJson = z.object({
   exports: RunExports,
 });
 export type RunJson = z.infer<typeof RunJson>;
+
+/** Minimum number of enabled providers required to run the review pipeline. */
+export const MIN_ACTIVE_SOURCES = 2;
+
+/**
+ * Providers that participate in this run. A source counts as active unless it
+ * is explicitly disabled (`enabled === false`), so runs created before the
+ * enabled flag existed are treated as fully enabled.
+ */
+export function activeSourceNames(run: RunJson): SourceName[] {
+  return SOURCE_NAMES.filter((n) => run.inputs.sources[n]?.enabled !== false);
+}
 
 // Compact summary used in run lists.
 export const RunSummary = z.object({

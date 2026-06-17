@@ -114,6 +114,7 @@ class RunStore {
         status: "error",
         warnings: ["No source saved yet"],
       },
+      enabled: true,
     });
     const sources: SourcesMap = {
       chatgpt: initialSource(),
@@ -149,6 +150,7 @@ class RunStore {
         originalIdeaPath: runPaths.originalIdea(runDir),
         enrichedPromptPath: runPaths.enrichedPrompt(runDir),
         modelInstructionsPath: runPaths.modelInstructions(runDir),
+        skipEnrichment: false,
         sources,
       },
       pipeline: { stages },

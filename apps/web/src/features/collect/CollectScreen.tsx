@@ -2,15 +2,17 @@ import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  MIN_ACTIVE_SOURCES,
   SOURCE_NAMES,
   SOURCE_NAME_LABELS,
+  activeSourceNames,
   type SourceName,
 } from "@rcc/shared";
 import { sourcesApi, type SourceContent } from "@/lib/apiSources";
 import { enrichApi } from "@/lib/apiEnrich";
 import { pipelineApi } from "@/lib/apiPipeline";
 import { SourceCard } from "./SourceCard";
-import { ChevronRight, ListChecks } from "lucide-react";
+import { ChevronRight, ListChecks, Plus } from "lucide-react";
 import clsx from "clsx";
 
 export function CollectScreen() {
@@ -29,10 +31,24 @@ export function CollectScreen() {
     enabled: Boolean(runId),
   });
 
-  const enrichedPrompt = enrichQuery.data?.enrichedPrompt ?? "";
   const sources = sourcesQuery.data?.sources;
   const run = sourcesQuery.data?.run;
   const stage = run?.pipeline.stages.source_audit;
+  const skipEnrichment = run?.inputs.skipEnrichment ?? false;
+  // The prompt operators copy into each model UI: the enriched prompt, or the
+  // raw idea when enrichment was skipped.
+  const effectivePrompt = skipEnrichment
+    ? enrichQuery.data?.originalIdea ?? ""
+    : enrichQuery.data?.enrichedPrompt ?? "";
+
+  const activeNames = useMemo<SourceName[]>(
+    () => (run ? activeSourceNames(run) : [...SOURCE_NAMES]),
+    [run],
+  );
+  const excludedNames = useMemo<SourceName[]>(
+    () => SOURCE_NAMES.filter((n) => !activeNames.includes(n)),
+    [activeNames],
+  );
 
   const auditMutation = useMutation({
     mutationFn: () => pipelineApi.runStage(runId!, "source_audit"),
@@ -42,7 +58,21 @@ export function CollectScreen() {
     },
   });
 
-  const counts = useMemo(() => countSources(sources), [sources]);
+  const toggleMutation = useMutation({
+    mutationFn: (vars: { name: SourceName; enabled: boolean }) =>
+      sourcesApi.setEnabled(runId!, vars.name, vars.enabled),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["sources", runId], data);
+      queryClient.setQueryData(["run", runId], data.run);
+    },
+  });
+
+  const counts = useMemo(
+    () => countSources(sources, activeNames),
+    [sources, activeNames],
+  );
+  const activeCount = activeNames.length;
+  const tooFew = activeCount < MIN_ACTIVE_SOURCES;
 
   return (
     <div className="space-y-6">
@@ -63,38 +93,88 @@ export function CollectScreen() {
                 name={n}
                 status={sources[n]?.state.validation.status ?? "error"}
                 saved={!!sources[n]?.state.savedAt}
+                excluded={excludedNames.includes(n)}
               />
             ))}
             <span className="ml-auto text-[11px] text-slate-500">
-              {counts.valid} valid · {counts.warning} warning ·{" "}
-              {counts.error} error · {counts.empty} missing
+              {activeCount} active · {counts.valid} valid · {counts.warning}{" "}
+              warning · {counts.error} error · {counts.empty} missing
             </span>
           </div>
         </div>
       )}
 
-      {!enrichedPrompt && (
-        <div className="card border-amber-500/30 bg-amber-500/5">
-          <div className="card-body text-sm text-amber-200">
-            Enrich the research prompt first so each Copy-prompt button has
-            something to copy. <button type="button" className="underline" onClick={() => navigate(`/runs/${runId}/enrich`)}>Go to Enrich</button>
+      {skipEnrichment ? (
+        <div className="card border-slate-700 bg-slate-800/30">
+          <div className="card-body text-sm text-slate-300">
+            Enrichment skipped — each Copy-prompt button copies your raw idea.{" "}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => navigate(`/runs/${runId}/enrich`)}
+            >
+              Enrich instead
+            </button>
           </div>
         </div>
+      ) : (
+        !effectivePrompt && (
+          <div className="card border-amber-500/30 bg-amber-500/5">
+            <div className="card-body text-sm text-amber-200">
+              Enrich the research prompt first so each Copy-prompt button has
+              something to copy.{" "}
+              <button
+                type="button"
+                className="underline"
+                onClick={() => navigate(`/runs/${runId}/enrich`)}
+              >
+                Go to Enrich
+              </button>
+            </div>
+          </div>
+        )
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         {sources &&
-          SOURCE_NAMES.map((n) => (
+          activeNames.map((n) => (
             <SourceCard
               key={n}
               runId={runId!}
               name={n}
               state={sources[n].state}
               serverContent={sources[n].content}
-              enrichedPrompt={enrichedPrompt}
+              prompt={effectivePrompt}
+              onExclude={() =>
+                toggleMutation.mutate({ name: n, enabled: false })
+              }
+              excluding={toggleMutation.isPending}
             />
           ))}
       </div>
+
+      {excludedNames.length > 0 && (
+        <div className="card">
+          <div className="card-body flex flex-wrap items-center gap-3 text-sm">
+            <span className="text-slate-400">Excluded providers:</span>
+            {excludedNames.map((n) => (
+              <button
+                key={n}
+                type="button"
+                className="btn-ghost text-xs"
+                disabled={toggleMutation.isPending}
+                onClick={() =>
+                  toggleMutation.mutate({ name: n, enabled: true })
+                }
+                title="Include this provider in the run"
+              >
+                <Plus size={12} />
+                {SOURCE_NAME_LABELS[n]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="card-header">
@@ -131,11 +211,20 @@ export function CollectScreen() {
               type="button"
               className="btn-secondary"
               onClick={() => auditMutation.mutate()}
-              disabled={auditMutation.isPending || counts.error > 0}
+              disabled={
+                auditMutation.isPending ||
+                counts.error > 0 ||
+                counts.empty > 0 ||
+                tooFew
+              }
               title={
-                counts.error > 0
-                  ? "Resolve hard-duplicate or empty-source errors first."
-                  : undefined
+                tooFew
+                  ? `Enable at least ${MIN_ACTIVE_SOURCES} providers first.`
+                  : counts.empty > 0
+                    ? "Save every enabled provider first."
+                    : counts.error > 0
+                      ? "Resolve hard-duplicate or empty-source errors first."
+                      : undefined
               }
             >
               <ListChecks size={14} />
@@ -150,22 +239,31 @@ export function CollectScreen() {
       </div>
 
       <div className="flex items-center justify-end gap-3">
-        {counts.empty > 0 && (
+        {tooFew && (
           <span className="text-xs text-amber-300">
-            {counts.empty} of 5 sources missing
+            Enable at least {MIN_ACTIVE_SOURCES} providers
+          </span>
+        )}
+        {!tooFew && counts.empty > 0 && (
+          <span className="text-xs text-amber-300">
+            {counts.empty} of {activeCount} sources missing
           </span>
         )}
         <button
           type="button"
           className="btn-primary"
-          disabled={counts.empty > 0 || stage?.status !== "complete"}
+          disabled={
+            tooFew || counts.empty > 0 || stage?.status !== "complete"
+          }
           onClick={() => navigate(`/runs/${runId}/review`)}
           title={
-            counts.empty > 0
-              ? "Save all five sources first"
-              : stage?.status !== "complete"
-                ? "Run the source audit first"
-                : undefined
+            tooFew
+              ? `Enable at least ${MIN_ACTIVE_SOURCES} providers first`
+              : counts.empty > 0
+                ? "Save every enabled provider first"
+                : stage?.status !== "complete"
+                  ? "Run the source audit first"
+                  : undefined
           }
         >
           Review pipeline
@@ -178,13 +276,14 @@ export function CollectScreen() {
 
 function countSources(
   sources: Record<SourceName, SourceContent> | undefined,
+  activeNames: SourceName[],
 ) {
   if (!sources) return { valid: 0, warning: 0, error: 0, empty: 0 };
   let valid = 0;
   let warning = 0;
   let error = 0;
   let empty = 0;
-  for (const n of SOURCE_NAMES) {
+  for (const n of activeNames) {
     const s = sources[n];
     if (!s?.state.savedAt) {
       empty += 1;
@@ -202,25 +301,31 @@ function SummaryTag({
   name,
   status,
   saved,
+  excluded,
 }: {
   name: SourceName;
   status: "valid" | "warning" | "error";
   saved: boolean;
+  excluded: boolean;
 }) {
-  const sym = !saved
-    ? "○"
-    : status === "valid"
-      ? "✓"
-      : status === "warning"
-        ? "⚠"
-        : "✕";
-  const cls = !saved
-    ? "text-slate-500"
-    : status === "valid"
-      ? "text-emerald-300"
-      : status === "warning"
-        ? "text-amber-300"
-        : "text-red-300";
+  const sym = excluded
+    ? "—"
+    : !saved
+      ? "○"
+      : status === "valid"
+        ? "✓"
+        : status === "warning"
+          ? "⚠"
+          : "✕";
+  const cls = excluded
+    ? "text-slate-600 line-through"
+    : !saved
+      ? "text-slate-500"
+      : status === "valid"
+        ? "text-emerald-300"
+        : status === "warning"
+          ? "text-amber-300"
+          : "text-red-300";
   return (
     <span className={clsx("inline-flex items-center gap-1 text-xs", cls)}>
       <span>{sym}</span>

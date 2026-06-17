@@ -63,6 +63,7 @@ export const sourceStore = {
       approxTokenCount: metrics.approxTokenCount,
       savedAt: new Date().toISOString(),
       validation,
+      enabled: run.inputs.sources[name]?.enabled !== false,
     };
 
     const updated = await runStore.update(runId, (r) => {
@@ -86,6 +87,37 @@ export const sourceStore = {
     const finalState = finalRun.inputs.sources[name];
 
     return { run: finalRun, sourceState: finalState, content };
+  },
+
+  async setEnabled(
+    runId: string,
+    name: SourceName,
+    enabled: boolean,
+  ): Promise<{ run: RunJson; sources: Record<SourceName, SourceContent> }> {
+    await runStore.update(runId, (r) => {
+      // Changing the active provider set invalidates a completed source audit
+      // (it examined a different set), so reset it to pending. The review
+      // pipeline is gated on a complete audit, which forces a re-run.
+      const stages = { ...r.pipeline.stages };
+      if (stages.source_audit && stages.source_audit.status !== "pending") {
+        stages.source_audit = { status: "pending" };
+      }
+      return {
+        ...r,
+        inputs: {
+          ...r.inputs,
+          sources: {
+            ...r.inputs.sources,
+            [name]: { ...r.inputs.sources[name]!, enabled },
+          },
+        },
+        pipeline: { ...r.pipeline, stages },
+      };
+    });
+    // Re-run duplicate detection so excluding/including a provider updates the
+    // warnings on the remaining active sources.
+    await revalidateAllSources(runId);
+    return this.list(runId);
   },
 
   async list(runId: string): Promise<{
@@ -114,7 +146,7 @@ async function loadOtherSources(
   for (const name of SOURCE_NAMES) {
     if (name === excluding) continue;
     const state = run.inputs.sources[name];
-    if (!state.savedAt) continue;
+    if (!state.savedAt || state.enabled === false) continue;
     const sourcePath = runPaths.source(run.run.runDir, name);
     if (!(await fileStore.exists(sourcePath))) continue;
     out.push({
@@ -131,7 +163,7 @@ async function revalidateAllSources(runId: string): Promise<RunJson> {
   const universe = new Map<SourceName, string>();
   for (const name of SOURCE_NAMES) {
     const state = run.inputs.sources[name];
-    if (!state.savedAt) continue;
+    if (!state.savedAt || state.enabled === false) continue;
     const sourcePath = runPaths.source(run.run.runDir, name);
     if (!(await fileStore.exists(sourcePath))) continue;
     universe.set(name, await fileStore.readText(sourcePath));

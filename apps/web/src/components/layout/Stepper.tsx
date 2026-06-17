@@ -91,6 +91,9 @@ function stepStatus(
 ): StepStatus {
   const order = WIZARD_STEPS.indexOf(step);
   const currentOrder = WIZARD_STEPS.indexOf(current);
+  // A skipped enrich step reads as done so the workflow doesn't look stalled.
+  if (step === "enrich" && run?.inputs.skipEnrichment && order !== currentOrder)
+    return "done";
   if (order === currentOrder) return "current";
   if (order < currentOrder) return "done";
   // Forward steps are "done" if their underlying artifacts exist on the run.

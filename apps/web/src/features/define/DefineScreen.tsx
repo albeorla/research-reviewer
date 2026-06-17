@@ -294,8 +294,8 @@ export function DefineScreen() {
                 <Step n={1}>Save your idea as 00-original-idea.md.</Step>
                 <Step n={2}>Create the run folder layout on disk.</Step>
                 <Step n={3}>
-                  Generate an enriched research prompt to run across five
-                  models.
+                  Generate an enriched research prompt (or skip it) to run
+                  across your models.
                 </Step>
                 <Step n={4}>
                   Paste each model's output back and start the review pipeline.

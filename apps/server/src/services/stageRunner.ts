@@ -65,65 +65,100 @@ export const stageRunner = {
     }));
     opts.onEvent?.({ type: "started" });
 
-    const prompt = await buildStagePrompt(run, cfg.templatePath, cfg.inputs(run));
-    const outputPath = cfg.outputPath(run);
-    const cliResult = await cliRunner.invoke({
-      provider: cfg.provider,
-      prompt,
-      outputFile: outputPath,
-      model: cfg.model,
-      timeoutMs: cfg.timeoutMs ?? config.pipeline.stageTimeoutMs,
-      onStream: (stream, text) =>
-        opts.onEvent?.({ type: "log", stream, text }),
-    });
-
-    const finishedAt = new Date().toISOString();
-    const content = (await fileStore.exists(outputPath))
-      ? await fileStore.readText(outputPath)
-      : "";
-    const ok = cliResult.exitCode === 0 && content.trim().length > 0;
-
-    const stageState: StageState = {
-      status: ok ? "complete" : "failed",
-      startedAt,
-      finishedAt,
-      durationMs: cliResult.durationMs,
-      provider: cfg.provider,
-      command: cliResult.command,
-      args: cliResult.args,
-      model: cliResult.model,
-      outputPath,
-      exitCode: cliResult.exitCode,
-      error: ok
-        ? undefined
-        : cliResult.stderrTail || `CLI exited with ${cliResult.exitCode}`,
-    };
-
-    const updated = await runStore.update(opts.runId, (r) => ({
-      ...r,
-      pipeline: {
-        ...r.pipeline,
-        stages: { ...r.pipeline.stages, [opts.stage]: stageState },
-      },
-    }));
-
-    if (ok) {
-      opts.onEvent?.({
-        type: "completed",
-        exitCode: cliResult.exitCode,
-      });
-    } else {
-      opts.onEvent?.({
-        type: "failed",
-        error: stageState.error ?? "Stage failed",
-        exitCode: cliResult.exitCode,
-      });
-      throw internal(
-        `Stage '${opts.stage}' failed (exit ${cliResult.exitCode}): ${(stageState.error ?? "").slice(0, 500)}`,
+    try {
+      const prompt = await buildStagePrompt(
+        run,
+        cfg.templatePath,
+        cfg.inputs(run),
       );
-    }
+      const outputPath = cfg.outputPath(run);
+      const cliResult = await cliRunner.invoke({
+        provider: cfg.provider,
+        prompt,
+        outputFile: outputPath,
+        model: cfg.model,
+        timeoutMs: cfg.timeoutMs ?? config.pipeline.stageTimeoutMs,
+        onStream: (stream, text) =>
+          opts.onEvent?.({ type: "log", stream, text }),
+      });
 
-    return { run: updated, stage: stageState, content };
+      const finishedAt = new Date().toISOString();
+      const content = (await fileStore.exists(outputPath))
+        ? await fileStore.readText(outputPath)
+        : "";
+      const ok = cliResult.exitCode === 0 && content.trim().length > 0;
+
+      const stageState: StageState = {
+        status: ok ? "complete" : "failed",
+        startedAt,
+        finishedAt,
+        durationMs: cliResult.durationMs,
+        provider: cfg.provider,
+        command: cliResult.command,
+        args: cliResult.args,
+        model: cliResult.model,
+        outputPath,
+        exitCode: cliResult.exitCode,
+        error: ok
+          ? undefined
+          : cliResult.stderrTail || `CLI exited with ${cliResult.exitCode}`,
+      };
+
+      const updated = await runStore.update(opts.runId, (r) => ({
+        ...r,
+        pipeline: {
+          ...r.pipeline,
+          stages: { ...r.pipeline.stages, [opts.stage]: stageState },
+        },
+      }));
+
+      if (ok) {
+        opts.onEvent?.({
+          type: "completed",
+          exitCode: cliResult.exitCode,
+        });
+      } else {
+        opts.onEvent?.({
+          type: "failed",
+          error: stageState.error ?? "Stage failed",
+          exitCode: cliResult.exitCode,
+        });
+        throw internal(
+          `Stage '${opts.stage}' failed (exit ${cliResult.exitCode}): ${(stageState.error ?? "").slice(0, 500)}`,
+        );
+      }
+
+      return { run: updated, stage: stageState, content };
+    } catch (err) {
+      // Guarantee the stage is never left dangling in "running". If something
+      // threw before a terminal state was persisted (a required input was
+      // missing, the CLI failed to spawn, etc.), mark it failed so the UI can
+      // recover. The ok===false branch above already persisted "failed", so we
+      // only act when the stage is still "running".
+      const current = await runStore.get(opts.runId).catch(() => null);
+      if (current?.pipeline.stages[opts.stage]?.status === "running") {
+        const message = err instanceof Error ? err.message : String(err);
+        await runStore
+          .update(opts.runId, (r) => ({
+            ...r,
+            pipeline: {
+              ...r.pipeline,
+              stages: {
+                ...r.pipeline.stages,
+                [opts.stage]: {
+                  status: "failed",
+                  startedAt,
+                  finishedAt: new Date().toISOString(),
+                  error: message.slice(0, 500),
+                },
+              },
+            },
+          }))
+          .catch(() => undefined);
+        opts.onEvent?.({ type: "failed", error: message });
+      }
+      throw err;
+    }
   },
 };
 

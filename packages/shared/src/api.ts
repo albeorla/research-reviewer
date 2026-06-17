@@ -60,6 +60,16 @@ export const EnrichRequest = z.object({
 });
 export type EnrichRequest = z.infer<typeof EnrichRequest>;
 
+export const SkipEnrichmentRequest = z.object({
+  skip: z.boolean(),
+});
+export type SkipEnrichmentRequest = z.infer<typeof SkipEnrichmentRequest>;
+
+export const SetSourceEnabledRequest = z.object({
+  enabled: z.boolean(),
+});
+export type SetSourceEnabledRequest = z.infer<typeof SetSourceEnabledRequest>;
+
 export const RerunStageRequest = z.object({
   rerunFromHere: z.boolean().optional(),
   customInstruction: z.string().optional(),

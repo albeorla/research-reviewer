@@ -30,7 +30,7 @@ Produce a single Markdown document with this exact structure:
 
 ## Source Agreement And Disagreement
 
-### Where the five sources agreed
+### Where the sources agreed
 
 (Bulleted list. Mark agreements that the contrarian critic argued against so the operator knows the consensus is contested.)
 

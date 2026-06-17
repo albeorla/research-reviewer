@@ -16,6 +16,7 @@ import {
   Check,
   Circle,
   ExternalLink,
+  EyeOff,
   Save,
 } from "lucide-react";
 import clsx from "clsx";
@@ -25,7 +26,10 @@ interface Props {
   name: SourceName;
   state: SourceState;
   serverContent: string | null;
-  enrichedPrompt: string;
+  /** Effective research prompt to copy (enriched prompt, or raw idea if skipped). */
+  prompt: string;
+  onExclude: () => void;
+  excluding?: boolean;
 }
 
 export function SourceCard({
@@ -33,7 +37,9 @@ export function SourceCard({
   name,
   state,
   serverContent,
-  enrichedPrompt,
+  prompt,
+  onExclude,
+  excluding,
 }: Props) {
   const qc = useQueryClient();
   const [mode, setMode] = useState<"paste" | "file">(state.mode ?? "paste");
@@ -111,12 +117,22 @@ export function SourceCard({
             Open
           </a>
           <CopyButton
-            text={enrichedPrompt}
+            text={prompt}
             label="Copy prompt"
             variant="ghost"
             size="sm"
-            disabled={!enrichedPrompt}
+            disabled={!prompt}
           />
+          <button
+            type="button"
+            className="btn-ghost text-xs"
+            onClick={onExclude}
+            disabled={excluding}
+            title="Exclude this provider from this run"
+          >
+            <EyeOff size={12} />
+            Exclude
+          </button>
         </div>
       </div>
       <div className="card-body space-y-3">

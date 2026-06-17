@@ -1,8 +1,11 @@
 import {
+  MIN_ACTIVE_SOURCES,
   PipelineStage,
   REVIEW_PIPELINE_STAGES,
   RunEvent,
   RunJson,
+  SOURCE_NAME_LABELS,
+  activeSourceNames,
 } from "@rcc/shared";
 import { stageRunner } from "./stageRunner.js";
 import { runStore } from "./runStore.js";
@@ -174,16 +177,18 @@ function assertReadyForReview(run: RunJson): void {
       "Source audit must complete before running the review pipeline.",
     );
   }
-  for (const name of [
-    "chatgpt",
-    "claude",
-    "gemini",
-    "deepseek",
-    "kimi",
-  ] as const) {
+  const active = activeSourceNames(run);
+  if (active.length < MIN_ACTIVE_SOURCES) {
+    throw badRequest(
+      `At least ${MIN_ACTIVE_SOURCES} providers must be enabled to run the review pipeline (currently ${active.length}).`,
+    );
+  }
+  for (const name of active) {
     const s = run.inputs.sources[name];
     if (!s.savedAt) {
-      throw badRequest(`Source '${name}' has not been saved.`);
+      throw badRequest(
+        `Source '${SOURCE_NAME_LABELS[name]}' is enabled but has not been saved.`,
+      );
     }
   }
 }

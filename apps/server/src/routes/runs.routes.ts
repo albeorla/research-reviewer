@@ -4,6 +4,7 @@ import {
   EnrichRequest,
   ListRunsQuery,
   RunParams,
+  SkipEnrichmentRequest,
   UpdateRunRequest,
 } from "@rcc/shared";
 import { runStore } from "../services/runStore.js";
@@ -54,15 +55,18 @@ export async function registerRunRoutes(app: FastifyInstance): Promise<void> {
     const run = await runStore.get(runId);
     const enrichedPath = runPaths.enrichedPrompt(run.run.runDir);
     const instructionsPath = runPaths.modelInstructions(run.run.runDir);
-    const [enrichedExists, instructionsExists] = await Promise.all([
+    const ideaPath = runPaths.originalIdea(run.run.runDir);
+    const [enrichedExists, instructionsExists, ideaExists] = await Promise.all([
       fileStore.exists(enrichedPath),
       fileStore.exists(instructionsPath),
+      fileStore.exists(ideaPath),
     ]);
-    const [enrichedPrompt, modelInstructions] = await Promise.all([
+    const [enrichedPrompt, modelInstructions, originalIdea] = await Promise.all([
       enrichedExists ? fileStore.readText(enrichedPath) : null,
       instructionsExists ? fileStore.readText(instructionsPath) : null,
+      ideaExists ? fileStore.readText(ideaPath) : null,
     ]);
-    return { enrichedPrompt, modelInstructions, run };
+    return { enrichedPrompt, modelInstructions, originalIdea, run };
   });
 
   app.post("/api/runs/:runId/enrich", async (req) => {
@@ -72,5 +76,15 @@ export async function registerRunRoutes(app: FastifyInstance): Promise<void> {
       runId,
       manualPrompt: body.prompt,
     });
+  });
+
+  app.post("/api/runs/:runId/enrich/skip", async (req) => {
+    const { runId } = RunParams.parse(req.params);
+    const { skip } = SkipEnrichmentRequest.parse(req.body);
+    const run = await runStore.update(runId, (r) => ({
+      ...r,
+      inputs: { ...r.inputs, skipEnrichment: skip },
+    }));
+    return { run };
   });
 }
